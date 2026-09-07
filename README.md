@@ -10,6 +10,12 @@ Code accompanying:
 
 Computational analysis related to a missense variant in the catalytic domain of USP26.
 
+## Molecular dynamics
+
+GROMACS commands used for the simple protein simulation are in:
+
+`md/gromacs_USP26_simulation.sh`
+
 ## Data policy
 
 No identifiable patient data. Variant-level and public annotations only.
