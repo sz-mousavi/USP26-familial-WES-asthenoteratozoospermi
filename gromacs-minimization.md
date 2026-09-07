@@ -1,5 +1,4 @@
 # USP26 Protein Minimization
-# Commands used for the USP26 project (lab notebook)
 
 source /usr/local/gromacs/bin/GMXRC
 gmx --version
