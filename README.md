@@ -14,7 +14,7 @@ Computational analysis related to a missense variant in the catalytic domain of 
 
 GROMACS commands used for the simple protein simulation are in:
 
-`md/gromacs_USP26_simulation.sh`
+`md/gromacs_USP26_simulation.md`
 
 ## Data policy
 
