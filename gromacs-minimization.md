@@ -1,6 +1,7 @@
 # USP26 Protein Minimization
 
 source /usr/local/gromacs/bin/GMXRC
+
 gmx --version
 # Deleting H2O Molecules
 grep -v HOH name.pdb > 1rex_clean.pdb
