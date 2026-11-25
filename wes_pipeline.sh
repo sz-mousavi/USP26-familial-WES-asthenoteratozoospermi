@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # WES pipeline
-# Tools: FastQC, HISAT2, samtools, GATK 4.1.9.0, ANNOVAR
+# Tools: FastQC, BWA-MEM, samtools, GATK 4.1.9.0, ANNOVAR
+#
+# Reference build: hg19. All paths below are placeholders ("...") and must be edited.
 set -euo pipefail
 
 # EDIT THESE PATHS / NAMES
@@ -9,7 +11,6 @@ FAMILY="XFamily"
 THREADS=24
 
 GATK_JAR=".../gatk-4.1.9.0/gatk-package-4.1.9.0-local.jar"
-HISAT2_INDEX=".../hg19/genome"
 REF=".../hg19/hg19.fa"
 
 KNOWN_DBSNP=".../Variant_Known_Database_dbsnp138_hg19/dbsnp_138.hg19.vcf"
@@ -31,6 +32,9 @@ FWD_UNPAIRED="ForwardUnpairs.fastq"
 REV_UNPAIRED="ReverseUnpairs.fastq"
 
 # Extra GVCFs for family joint calling (edit list)
+# Placeholder: replace with one distinct per-sample GVCF per family member
+# (each produced by the HaplotypeCaller step below). The repeated entries
+# here are only a template and would fail/duplicate if left unchanged.
 FAMILY_GVCFS=(
   "${SAMPLE}.gvcf"
   "${SAMPLE}.gvcf"
@@ -46,14 +50,39 @@ gatk() {
 # FASTQC
 fastqc -f fastq *.fastq
 
-# ALIGNING (hisat2)
-hisat2 -q -p "${THREADS}" --add-chrname \
-  -x "${HISAT2_INDEX}" \
-  -1 "${FWD_PAIRED}" \
-  -2 "${REV_PAIRED}" \
-  -U "${FWD_UNPAIRED}" \
-  -U "${REV_UNPAIRED}" \
-  -S "${SAMPLE}.sam"
+# ALIGNING (BWA-MEM)
+# One-time step: build the BWA index for the hg19 FASTA if it is not already present.
+# bwa index "${REF}"
+#
+# Read input follows the original four-FASTQ layout: ForwardPairs/ReversePairs as
+# a mate pair, plus ForwardUnpairs and ReverseUnpairs as leftover unpaired reads
+# after trimming. BWA-MEM is run as paired-end on the mate files and as
+# single-end on each unpaired file; the three SAM outputs are combined into
+# ${SAMPLE}.sam for the existing downstream steps. Read groups are written here
+# so HaplotypeCaller/BQSR have RG tags (AddOrReplaceReadGroups below remains
+# as a fallback).
+RG="@RG\tID:${SAMPLE}\tSM:${SAMPLE}\tPL:ILLUMINA\tLB:Twist-WES\tPU:MD"
+
+# Paired-end mates
+bwa mem -t "${THREADS}" -M -R "${RG}" \
+  "${REF}" "${FWD_PAIRED}" "${REV_PAIRED}" \
+  > "${SAMPLE}.paired.sam"
+
+# Leftover unpaired reads (single-end; one FASTQ argument each)
+bwa mem -t "${THREADS}" -M -R "${RG}" \
+  "${REF}" "${FWD_UNPAIRED}" \
+  > "${SAMPLE}.fwd_unpaired.sam"
+
+bwa mem -t "${THREADS}" -M -R "${RG}" \
+  "${REF}" "${REV_UNPAIRED}" \
+  > "${SAMPLE}.rev_unpaired.sam"
+
+# Header from the paired SAM, alignment records from all three
+{
+  cat "${SAMPLE}.paired.sam"
+  samtools view "${SAMPLE}.fwd_unpaired.sam"
+  samtools view "${SAMPLE}.rev_unpaired.sam"
+} > "${SAMPLE}.sam"
 
 # SAM to BAM & filtration
 samtools view -b -F 4 --threads "${THREADS}" "${SAMPLE}.sam" > "${SAMPLE}_unsorted.bam"
@@ -85,7 +114,9 @@ gatk BaseRecalibrator \
   -I "${SAMPLE}_Sorted_RG_MD.bam" \
   -O "${SAMPLE}BQSR.txt" \
   -R "${REF}" \
-  --known-sites "${KNOWN_DBSNP}"
+  --known-sites "${KNOWN_DBSNP}" \
+  --known-sites "${MILLS}" \
+  --known-sites "${KG_INDEL}"
 
 # step2
 gatk ApplyBQSR \
@@ -97,7 +128,9 @@ gatk BaseRecalibrator \
   -I "${SAMPLE}_Sorted_RG_MD_bqsr.bam" \
   -O "${SAMPLE}_table.txt" \
   -R "${REF}" \
-  --known-sites "${KNOWN_DBSNP}"
+  --known-sites "${KNOWN_DBSNP}" \
+  --known-sites "${MILLS}" \
+  --known-sites "${KG_INDEL}"
 
 # AnalyzeCovariates
 gatk AnalyzeCovariates \
