@@ -1,0 +1,37 @@
+# R / editor / OS
+*.rds
+*.RDS
+.RData
+.Rhistory
+.DS_Store
+
+# Data and results (no patient data in this repository)
+data/
+results/
+
+# Sequencing intermediates and variant files (large and/or potentially identifiable)
+*.fastq
+*.fastq.gz
+*.fq
+*.fq.gz
+*.sam
+*.bam
+*.bai
+*.vcf
+*.vcf.gz
+*.vcf.idx
+*.tbi
+*.gvcf
+*.g.vcf.gz
+
+# GROMACS intermediates and trajectories
+*.trr
+*.xtc
+*.edr
+*.cpt
+*.tpr
+*.gro
+*.log
+nohup.out
+\#*#
+.*.swp
